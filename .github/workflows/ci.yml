@@ -1,0 +1,39 @@
+name: Build and test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependency
+        run: python -m pip install pytest
+
+      - name: Compile
+        run: python -m compileall app
+
+      - name: Test
+        run: pytest -q
+
+      - name: Create ZIP
+        run: |
+          mkdir -p dist
+          zip -r dist/android-recovery-assistant.zip app README.md run.command
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-recovery-assistant
+          path: dist/android-recovery-assistant.zip
