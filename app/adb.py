@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import Iterable, List
 
 
 @dataclass
@@ -87,11 +87,44 @@ def reboot(mode: str = "system", serial: str | None = None) -> None:
         raise RuntimeError(result.stderr.strip() or "Restart nie powiódł się.")
 
 
-def backup_dcim(destination: Path, serial: str | None = None) -> Path:
+def pull_path(remote_path: str, destination: Path, serial: str | None = None) -> None:
     dev = require_authorized_device(serial)
     destination = destination.expanduser().resolve()
     destination.mkdir(parents=True, exist_ok=True)
-    result = _run(["-s", dev.serial, "pull", "/sdcard/DCIM", str(destination)], timeout=600)
+    result = _run(
+        ["-s", dev.serial, "pull", remote_path, str(destination)],
+        timeout=1800,
+    )
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "Kopiowanie DCIM nie powiodło się.")
+        raise RuntimeError(result.stderr.strip() or f"Nie udało się skopiować {remote_path}.")
+
+
+def backup_paths(
+    destination: Path,
+    remote_paths: Iterable[str] | None = None,
+    serial: str | None = None,
+) -> Path:
+    destination = destination.expanduser().resolve()
+    destination.mkdir(parents=True, exist_ok=True)
+    paths = list(remote_paths or [
+        "/sdcard/DCIM",
+        "/sdcard/Pictures",
+        "/sdcard/Movies",
+        "/sdcard/Download",
+        "/sdcard/Documents",
+    ])
+    errors: list[str] = []
+    for remote in paths:
+        try:
+            pull_path(remote, destination, serial)
+        except RuntimeError as exc:
+            errors.append(f"{remote}: {exc}")
+    if len(errors) == len(paths):
+        raise RuntimeError("Nie udało się skopiować żadnego katalogu.\n" + "\n".join(errors))
+    return destination
+
+
+def backup_dcim(destination: Path, serial: str | None = None) -> Path:
+    destination = destination.expanduser().resolve()
+    pull_path("/sdcard/DCIM", destination, serial)
     return destination
