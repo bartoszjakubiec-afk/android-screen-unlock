@@ -1,0 +1,1 @@
+"""Android Recovery Assistant package."""
